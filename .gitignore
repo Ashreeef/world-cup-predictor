@@ -19,6 +19,7 @@ artifacts/*.json
 
 # ── Data: keep raw sources out of git if large; keep folder structure ──────────
 # We commit small reference data but ignore large / regenerated files.
+data/raw/*
 data/processed/*
 data/predictions/*
 data/live/match_updates/*
