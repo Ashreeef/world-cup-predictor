@@ -65,16 +65,20 @@ def generate_predictions(
     save: bool = True,
     label: str | None = None,
     applied_matches: list[str] | None = None,
+    played_matches: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, Path | None]:
-    """Run the simulation and (optionally) save a snapshot."""
+    """Run the simulation (conditioned on `played_matches`) and optionally save."""
     from worldcup.simulation.simulator import run_simulation
 
-    df = run_simulation(n_sims=n_sims, seed=seed, elo=elo, poisson_bundle=poisson_bundle)
+    df = run_simulation(
+        n_sims=n_sims, seed=seed, elo=elo, poisson_bundle=poisson_bundle, played_matches=played_matches
+    )
     metadata = {
         "n_sims": n_sims,
         "seed": seed,
         "label": label,
         "elo_through": getattr(elo, "last_date", None),
+        "n_played": 0 if played_matches is None else len(played_matches),
         "applied_matches": applied_matches or [],
     }
     path = save_snapshot(df, metadata) if save else None

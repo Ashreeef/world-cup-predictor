@@ -67,8 +67,13 @@ def load_predictions() -> pd.DataFrame:
     if snap is not None:
         df, _ = load_snapshot(snap)
         return df
+    from worldcup.simulation.simulator import load_wc2026_played
+
     elo, poisson_bundle = load_models()
-    df, _ = generate_predictions(n_sims=10000, elo=elo, poisson_bundle=poisson_bundle, save=True)
+    df, _ = generate_predictions(
+        n_sims=10000, elo=elo, poisson_bundle=poisson_bundle,
+        played_matches=load_wc2026_played(), save=True,
+    )
     return df
 
 
@@ -161,11 +166,15 @@ with tab_live:
 
         if st.button("Apply & recompute", type="primary"):
             with st.spinner("Re-simulating ..."):
+                from worldcup.simulation.simulator import load_wc2026_played
+
+                played_before = load_wc2026_played()
+                played_after = load_wc2026_played(extra=matches)
                 elo_after = copy.deepcopy(elo)
                 for r in matches.itertuples():
                     elo_after.update_match(r.home_team, r.away_team, int(r.home_score), int(r.away_score), neutral=True)
-                after = TournamentSimulator(elo_after, poisson_bundle, seed=42).run(5000)
-                before = TournamentSimulator(elo, poisson_bundle, seed=42).run(5000)
+                before = TournamentSimulator(elo, poisson_bundle, seed=42, played_matches=played_before).run(5000)
+                after = TournamentSimulator(elo_after, poisson_bundle, seed=42, played_matches=played_after).run(5000)
                 movers = compare(before, after, "champion").head(10)
             movers_disp = movers.copy()
             for c in ["champion_before", "champion_after", "delta"]:

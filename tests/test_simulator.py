@@ -12,7 +12,11 @@ import pandas as pd
 from worldcup.data.wc2026 import get_group_teams
 from worldcup.features.elo import EloRatingSystem
 from worldcup.models.poisson import train_poisson
-from worldcup.simulation.simulator import TournamentSimulator, _seeding_order
+from worldcup.simulation.simulator import (
+    TournamentSimulator,
+    assign_thirds,
+    build_official_bracket,
+)
 
 
 def _toy_bundle():
@@ -44,10 +48,24 @@ def _sim(seed=1):
     return TournamentSimulator(_toy_elo(), _toy_bundle(), seed=seed)
 
 
-def test_seeding_order_is_a_permutation():
-    order = _seeding_order(32)
-    assert sorted(order) == list(range(1, 33))
-    assert order[0] == 1 and 32 in (order[1], order[-1])
+def test_assign_thirds_avoids_rematch_and_is_bijection():
+    advancing = ["A", "B", "C", "D", "G", "H", "K", "L"]  # incl. all winner-slot groups
+    assign = assign_thirds(advancing)
+    assert len(assign) == 8
+    assert sorted(assign.values()) == sorted(advancing)  # bijection
+    for slot, group in assign.items():
+        assert slot != group  # no group-stage rematch
+
+
+def test_official_bracket_has_32_unique_teams():
+    winners = {g: ord(g) - 65 for g in "ABCDEFGHIJKL"}          # 0..11
+    runners = {g: 12 + ord(g) - 65 for g in "ABCDEFGHIJKL"}     # 12..23
+    advancing = ["A", "B", "C", "D", "G", "H", "K", "L"]
+    third_team_by_group = {g: 24 + i for i, g in enumerate(advancing)}  # 24..31
+    assign = assign_thirds(advancing)
+    bracket = build_official_bracket(winners, runners, third_team_by_group, assign)
+    assert len(bracket) == 32
+    assert len(set(bracket)) == 32  # every qualifier appears exactly once
 
 
 def test_output_shape_and_ranges():
@@ -85,3 +103,18 @@ def test_determinism_with_seed():
     a = _sim(seed=7).run(n_sims=150)
     b = _sim(seed=7).run(n_sims=150)
     pd.testing.assert_frame_equal(a, b)
+
+
+def test_played_results_are_fixed():
+    """A fixed result should make that outcome certain across all sims."""
+    teams = [t for ts in get_group_teams().values() for t in ts]
+    # Argentina hammers Jordan 5-0 (same group J) in every simulation.
+    played = pd.DataFrame(
+        [{"home_team": "Argentina", "away_team": "Jordan", "home_score": 5, "away_score": 0}]
+    )
+    sim = TournamentSimulator(_toy_elo(), _toy_bundle(), seed=1, played_matches=played)
+    i, j = sim.idx["Argentina"], sim.idx["Jordan"]
+    # The fixed match always returns 5-0 with Argentina winning.
+    for _ in range(20):
+        gi, gj, w = sim._play(i, j)
+        assert (gi, gj) == (5, 0) and w == i

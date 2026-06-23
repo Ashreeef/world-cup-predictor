@@ -87,14 +87,19 @@ def main() -> None:
     elo = _load_elo()
     poisson_bundle = _load_poisson()
 
+    from worldcup.simulation.simulator import load_wc2026_played
+
+    played_before = load_wc2026_played()
+    played_after = load_wc2026_played(extra=matches)
+
     # BEFORE snapshot (current state) — same seed as AFTER for a fair comparison.
     print("\nComputing BEFORE predictions ...")
     before_df, _ = generate_predictions(
         n_sims=args.sims, seed=args.seed, elo=elo, poisson_bundle=poisson_bundle,
-        save=False, label="before_update",
+        played_matches=played_before, save=False, label="before_update",
     )
 
-    # Incrementally update Elo (no retrain) and persist.
+    # Incrementally update Elo (no retrain) and persist; fix the new result in the sim.
     for r in matches.itertuples():
         elo.update_match(r.home_team, r.away_team, int(r.home_score), int(r.away_score),
                          neutral=True, date=str(r.date)[:10])
@@ -105,7 +110,7 @@ def main() -> None:
     print("Computing AFTER predictions ...")
     after_df, snap_path = generate_predictions(
         n_sims=args.sims, seed=args.seed, elo=elo, poisson_bundle=poisson_bundle,
-        save=True, label="after_update", applied_matches=descriptions,
+        played_matches=played_after, save=True, label="after_update", applied_matches=descriptions,
     )
 
     report_path = write_comparison_report(before_df, after_df, descriptions)
