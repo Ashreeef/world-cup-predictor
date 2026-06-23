@@ -117,6 +117,30 @@ class EloRatingSystem:
             )
         return self
 
+    def replay_predictions(self, matches: pd.DataFrame) -> pd.DataFrame:
+        """Walk forward through matches, recording each PRE-match prediction.
+
+        For every match (in date order) we record the expected home score
+        *before* seeing the result, then apply the update. Returns a DataFrame
+        with columns: expected_home, actual_home. Used for calibration (Phase 5)
+        and as an Elo-only baseline (Phase 7).
+        """
+        rows = []
+        for row in matches.sort_values("date").itertuples(index=False):
+            neutral = bool(getattr(row, "neutral", False))
+            e = self.expected_score(row.home_team, row.away_team, neutral)
+            if row.home_score > row.away_score:
+                w = 1.0
+            elif row.home_score < row.away_score:
+                w = 0.0
+            else:
+                w = 0.5
+            rows.append((e, w))
+            self.update_match(
+                row.home_team, row.away_team, int(row.home_score), int(row.away_score), neutral
+            )
+        return pd.DataFrame(rows, columns=["expected_home", "actual_home"])
+
     # ── Reporting ─────────────────────────────────────────────────────────────────
     def top(self, n: int = 20) -> pd.DataFrame:
         """Return the top-n teams by rating."""
