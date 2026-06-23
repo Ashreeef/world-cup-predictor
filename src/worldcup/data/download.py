@@ -68,6 +68,26 @@ def download_from_kaggle(force: bool = False) -> None:
     api.dataset_download_files(KAGGLE_DATASET, path=str(RAW_DATA_DIR), unzip=True)
 
 
+# Optional: FIFA world ranking history (separate Kaggle dataset). Not used as a
+# feature yet — wired up here for a future Phase 14b extension. Requires Kaggle auth.
+FIFA_RANKING_DATASET = "cashncarry/fifaworldranking"
+
+
+def download_fifa_rankings(force: bool = False) -> None:
+    """Download FIFA world ranking history from Kaggle into data/raw/ (optional)."""
+    target = RAW_DATA_DIR / "fifa_ranking.csv"
+    if target.exists() and not force:
+        print(f"Already present: {target.name}")
+        return
+    from kaggle.api.kaggle_api_extended import KaggleApi
+
+    api = KaggleApi()
+    api.authenticate()
+    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading '{FIFA_RANKING_DATASET}' into {RAW_DATA_DIR} ...")
+    api.dataset_download_files(FIFA_RANKING_DATASET, path=str(RAW_DATA_DIR), unzip=True)
+
+
 def ensure_results() -> None:
     """Make sure data/raw/results.csv exists, downloading it if not.
 

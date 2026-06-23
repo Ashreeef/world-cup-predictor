@@ -92,6 +92,18 @@ def plot_score_matrix(
     return ax
 
 
+def plot_reliability(reliability: dict, ax: plt.Axes | None = None) -> plt.Axes:
+    """Per-class reliability curves (predicted vs observed); diagonal = perfect."""
+    ax = ax or plt.gca()
+    ax.plot([0, 1], [0, 1], "--", color="gray", label="Perfect")
+    for cls, (pred, obs, _cnt) in reliability.items():
+        ax.plot(pred, obs, "o-", label=cls)
+    ax.set(xlabel="Predicted probability", ylabel="Observed frequency",
+           title="Reliability (calibration) curve", xlim=(0, 1), ylim=(0, 1))
+    ax.legend(title="Outcome")
+    return ax
+
+
 def plot_feature_importance(importances: dict[str, float], ax: plt.Axes | None = None) -> plt.Axes:
     """Horizontal bar chart of model feature importances."""
     ax = ax or plt.gca()
