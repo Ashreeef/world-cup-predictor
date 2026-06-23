@@ -127,7 +127,7 @@ pytest
 - [x] **Phase 11** — Qualification & championship probabilities
 - [x] **Phase 12** — Streamlit dashboard
 - [x] **Phase 13** — Deployment
-- [ ] **Phase 14** — Model improvement
+- [x] **Phase 14** — Model improvement (tournament-weighted Elo, calibration, fixed bracket, Dixon-Coles)
 
 ---
 
@@ -147,8 +147,12 @@ The three trained models tie — with only 4 features and `elo_diff` dominating
 little. Bigger gains will come from richer features (Phase 14), not fancier
 models. The Poisson model additionally produces full scoreline probabilities.
 
-Sample title odds (10,000 simulations): Argentina **27.6%**, Spain **20.3%**,
-France **11.2%**, Brazil **6.7%**, England **6.0%**.
+Probabilities are well-calibrated (multiclass **Brier 0.514** vs 0.667 uniform).
+A **Dixon-Coles** model improves exact-score likelihood (−2.74 vs −2.86 for the
+Elo-Poisson) and is provided as a standalone comparison.
+
+Sample title odds (10,000 simulations, fixed bracket): Argentina **25.4%**,
+Spain **23.0%**, France **11.5%**, England **8.7%**, Brazil **4.5%**.
 
 ---
 
