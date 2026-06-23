@@ -194,15 +194,24 @@ class TournamentSimulator:
         return df.sort_values("champion", ascending=False).reset_index(drop=True)
 
 
-def run_simulation(n_sims: int = 10000, seed: int | None = None) -> pd.DataFrame:
-    """Convenience: build current Elo + Poisson from data and run the simulation."""
-    from worldcup.data.load import load_results
-    from worldcup.features.build import build_features
-    from worldcup.features.elo import build_current_ratings
-    from worldcup.models.poisson import train_poisson
+def run_simulation(
+    n_sims: int = 10000,
+    seed: int | None = None,
+    elo: EloRatingSystem | None = None,
+    poisson_bundle: dict | None = None,
+) -> pd.DataFrame:
+    """Run the simulation, building current Elo + Poisson from data if not given."""
+    if elo is None or poisson_bundle is None:
+        from worldcup.data.load import load_results
+        from worldcup.features.build import build_features
+        from worldcup.features.elo import build_current_ratings
+        from worldcup.models.poisson import train_poisson
 
-    elo = build_current_ratings(save=False)
-    poisson_bundle = train_poisson(build_features(load_results()), save=False)
+        if elo is None:
+            elo = build_current_ratings(save=False)
+        if poisson_bundle is None:
+            poisson_bundle = train_poisson(build_features(load_results()), save=False)
+
     sim = TournamentSimulator(elo, poisson_bundle, seed=seed)
     return sim.run(n_sims)
 

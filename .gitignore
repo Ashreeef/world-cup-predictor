@@ -23,6 +23,7 @@ data/raw/*
 data/processed/*
 data/predictions/*
 data/live/match_updates/*
+data/live/applied_matches.csv
 !**/.gitkeep
 
 # ── Reports (regenerated) ──────────────────────────────────────────────────────
