@@ -81,6 +81,15 @@ def plot_top_teams(elo: EloRatingSystem, n: int = 15, ax: plt.Axes | None = None
     return ax
 
 
+def plot_feature_importance(importances: dict[str, float], ax: plt.Axes | None = None) -> plt.Axes:
+    """Horizontal bar chart of model feature importances."""
+    ax = ax or plt.gca()
+    s = pd.Series(importances).sort_values()
+    ax.barh(s.index, s.values, color="#8172B3")
+    ax.set(xlabel="Importance", title="Feature importance")
+    return ax
+
+
 def plot_group_strength(groups: pd.DataFrame, elo: EloRatingSystem, ax: plt.Axes | None = None) -> plt.Axes:
     """Average Elo per WC2026 group — reveals the 'group of death'."""
     ax = ax or plt.gca()
