@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from worldcup.data.teams import canonical
-from worldcup.features.elo import EloRatingSystem
+from worldcup.features.elo import EloRatingSystem, match_weight
 
 FEATURE_COLUMNS = ["elo_diff", "form_points_diff", "form_gd_diff", "neutral"]
 
@@ -106,7 +106,7 @@ def build_features(
         )
 
         # 2) THEN update state with the result
-        elo.update_match(home, away, hs, as_, neutral)
+        elo.update_match(home, away, hs, as_, neutral, weight=match_weight(getattr(row, "tournament", None)))
         form.update(home, away, hs, as_)
 
     df = pd.DataFrame(rows)
@@ -153,6 +153,7 @@ def fit_state(matches: pd.DataFrame, form_window: int = DEFAULT_FORM_WINDOW):
     for row in matches.itertuples(index=False):
         home, away = canonical(row.home_team), canonical(row.away_team)
         hs, as_ = int(row.home_score), int(row.away_score)
-        elo.update_match(home, away, hs, as_, bool(getattr(row, "neutral", False)))
+        elo.update_match(home, away, hs, as_, bool(getattr(row, "neutral", False)),
+                         weight=match_weight(getattr(row, "tournament", None)))
         form.update(home, away, hs, as_)
     return elo, form

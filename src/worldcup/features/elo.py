@@ -34,6 +34,29 @@ HOME_ADVANTAGE = 100.0
 RATINGS_PATH: Path = ARTIFACTS_DIR / "elo_ratings.json"
 
 
+def match_weight(tournament: str | None) -> float:
+    """Match-importance multiplier on the K-factor (à la eloratings.net).
+
+    Friendlies move ratings little; World Cup matches move them most.
+    """
+    if not tournament:
+        return 1.0
+    t = tournament.lower()
+    if "friendly" in t:
+        return 0.5
+    if "qualification" in t or "qualifier" in t:
+        return 1.2
+    if "nations league" in t:
+        return 1.2
+    if "world cup" in t:  # the finals themselves (qualification handled above)
+        return 2.0
+    # Major continental finals and other senior competitive tournaments.
+    major = ("euro", "copa", "african cup", "afc asian", "gold cup", "confederations", "nations cup")
+    if any(k in t for k in major):
+        return 1.5
+    return 1.0  # other competitive matches
+
+
 def _goal_diff_multiplier(margin: int) -> float:
     """Margin-of-victory multiplier G (eloratings.net scheme)."""
     if margin <= 1:
@@ -79,8 +102,12 @@ class EloRatingSystem:
         away_score: int,
         neutral: bool = False,
         date: str | None = None,
+        weight: float = 1.0,
     ) -> dict[str, float]:
-        """Apply one finished match and return the rating changes."""
+        """Apply one finished match and return the rating changes.
+
+        `weight` scales the K-factor by match importance (see match_weight()).
+        """
         home, away = canonical(home), canonical(away)
         e_home = self.expected_score(home, away, neutral)
 
@@ -92,7 +119,7 @@ class EloRatingSystem:
             w_home = 0.5
 
         g = _goal_diff_multiplier(abs(home_score - away_score))
-        change = self.k_factor * g * (w_home - e_home)
+        change = self.k_factor * weight * g * (w_home - e_home)
 
         self.ratings[home] = self.get(home) + change
         self.ratings[away] = self.get(away) - change  # zero-sum
@@ -114,6 +141,7 @@ class EloRatingSystem:
                 away_score=int(row.away_score),
                 neutral=bool(getattr(row, "neutral", False)),
                 date=getattr(row, "date", None),
+                weight=match_weight(getattr(row, "tournament", None)),
             )
         return self
 
@@ -137,7 +165,8 @@ class EloRatingSystem:
                 w = 0.5
             rows.append((e, w))
             self.update_match(
-                row.home_team, row.away_team, int(row.home_score), int(row.away_score), neutral
+                row.home_team, row.away_team, int(row.home_score), int(row.away_score), neutral,
+                weight=match_weight(getattr(row, "tournament", None)),
             )
         return pd.DataFrame(rows, columns=["expected_home", "actual_home"])
 
