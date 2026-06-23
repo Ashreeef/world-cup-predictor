@@ -81,6 +81,17 @@ def plot_top_teams(elo: EloRatingSystem, n: int = 15, ax: plt.Axes | None = None
     return ax
 
 
+def plot_score_matrix(
+    matrix, home: str = "Home", away: str = "Away", max_display: int = 6, ax: plt.Axes | None = None
+) -> plt.Axes:
+    """Heatmap of scoreline probabilities (home goals rows x away goals cols)."""
+    ax = ax or plt.gca()
+    m = matrix[: max_display + 1, : max_display + 1]
+    sns.heatmap(m, annot=True, fmt=".1%", cmap="Blues", cbar=False, ax=ax)
+    ax.set(xlabel=f"{away} goals", ylabel=f"{home} goals", title="Scoreline probabilities")
+    return ax
+
+
 def plot_feature_importance(importances: dict[str, float], ax: plt.Axes | None = None) -> plt.Axes:
     """Horizontal bar chart of model feature importances."""
     ax = ax or plt.gca()

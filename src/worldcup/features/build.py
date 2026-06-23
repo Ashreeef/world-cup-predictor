@@ -99,6 +99,8 @@ def build_features(
                 "form_points_diff": form.avg_points(home) - form.avg_points(away),
                 "form_gd_diff": form.avg_gd(home) - form.avg_gd(away),
                 "neutral": int(neutral),
+                "home_score": hs,
+                "away_score": as_,
                 "result": _result(hs, as_),
             }
         )
