@@ -21,7 +21,7 @@ _READY = RATINGS_PATH.exists() and POISSON_PATH.exists() and latest_snapshot() i
 def test_app_runs_without_exception():
     at = AppTest.from_file("app/streamlit_app.py").run(timeout=120)
     assert not at.exception
-    # The four tabs should render.
-    assert len(at.tabs) == 4
+    # All five tabs should render.
+    assert len(at.tabs) == 5
     # Headline title present.
     assert any("World Cup 2026 Predictor" in str(t.value) for t in at.title)

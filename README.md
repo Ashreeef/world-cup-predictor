@@ -156,6 +156,32 @@ Spain **23.0%**, France **11.5%**, England **8.7%**, Brazil **4.5%**.
 
 ---
 
+## Keeping it live (adding match results)
+
+The predictions are **results-aware**: matches already played are held fixed and
+only the remaining fixtures are simulated, so teams are eliminated exactly as the
+real tournament unfolds. Two ways to feed in new results:
+
+**1. Refresh the official feed (easiest).** The historical dataset auto-includes
+World Cup matches as they're played:
+```bash
+python -m worldcup.data.download --force      # re-pull latest results
+python -m worldcup.features.elo                # rebuild ratings
+```
+
+**2. Add a match manually (instant, before the feed updates).** Create a CSV with
+the schema `date,home_team,away_team,home_score,away_score,stage` and run the live
+pipeline:
+```bash
+python scripts/update_pipeline.py --match data/live/match_updates/new_match.csv
+```
+This updates Elo incrementally (no retrain), fixes the result in the simulation,
+re-runs the Monte Carlo, saves a new prediction snapshot, and writes a
+before/after comparison report to `reports/`. You can also do this in the
+dashboard's **🔄 Live update** tab.
+
+---
+
 ## Deployment
 
 The dashboard deploys to **Streamlit Community Cloud** with zero committed data:

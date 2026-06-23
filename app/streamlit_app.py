@@ -26,7 +26,11 @@ from worldcup.simulation.predictions import (
     latest_snapshot,
     load_snapshot,
 )
-from worldcup.simulation.simulator import TournamentSimulator
+from worldcup.simulation.simulator import (
+    TournamentSimulator,
+    current_standings,
+    load_wc2026_played,
+)
 from worldcup.visualization import plots
 
 STAGE_COLS = ["qualify", "round_of_16", "quarter_final", "semi_final", "final", "champion"]
@@ -93,11 +97,29 @@ groups_df = load_groups()
 predictions = load_predictions()
 teams = sorted(predictions["team"])
 
+
+@st.cache_data(show_spinner=False)
+def load_standings() -> tuple[pd.DataFrame, int]:
+    played = load_wc2026_played()
+    return current_standings(played), len(played)
+
+
+standings, n_played = load_standings()
+
 st.title("🏆 World Cup 2026 Predictor")
 st.caption("Elo ratings + Poisson scoring + Monte Carlo simulation. Predictions update after every match.")
 
-tab_odds, tab_groups, tab_match, tab_live = st.tabs(
-    ["🏆 Title odds", "📊 Groups", "⚔️ Match predictor", "🔄 Live update"]
+# Tournament status banner.
+eliminated = predictions[predictions["qualify"] < 1e-9]["team"].map(display).tolist()
+c1, c2, c3 = st.columns(3)
+c1.metric("Group matches played", f"{n_played} / 72")
+c2.metric("Teams eliminated", len(eliminated))
+c3.metric("Title favourite", display(predictions.iloc[0]["team"]), f"{predictions.iloc[0]['champion']*100:.0f}%")
+if eliminated:
+    st.warning("Eliminated: " + ", ".join(eliminated))
+
+tab_odds, tab_groups, tab_bracket, tab_match, tab_live = st.tabs(
+    ["🏆 Title odds", "📊 Groups", "🗺️ Bracket", "⚔️ Match predictor", "🔄 Live update"]
 )
 
 # ── Tab 1: Title odds ─────────────────────────────────────────────────────────────────
@@ -120,14 +142,51 @@ with tab_groups:
     st.subheader("Group qualification odds")
     group_letter = st.selectbox("Select a group", sorted(groups_df["group"].unique()))
     group_teams = groups_df[groups_df["group"] == group_letter]["team"].tolist()
-    group_view = predictions[predictions["team"].isin(group_teams)][["team", "qualify", "round_of_16", "champion"]]
-    st.dataframe(_pct(group_view, ["qualify", "round_of_16", "champion"]), use_container_width=True, hide_index=True)
+
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Current standings** (real results so far)")
+        cur = standings[standings["group"] == group_letter][["team", "played", "pts", "gd", "gf"]]
+        st.dataframe(cur, use_container_width=True, hide_index=True)
+    with right:
+        st.markdown("**Qualification odds** (simulated)")
+        odds = predictions[predictions["team"].isin(group_teams)][["team", "qualify", "round_of_16", "champion"]]
+        st.dataframe(_pct(odds, ["qualify", "round_of_16", "champion"]), use_container_width=True, hide_index=True)
 
     fig, ax = plt.subplots(figsize=(9, 4))
     plots.plot_group_strength(groups_df, elo, ax=ax)
     st.pyplot(fig)
 
-# ── Tab 3: Match predictor ─────────────────────────────────────────────────────────────
+# ── Tab 3: Bracket ────────────────────────────────────────────────────────────────────
+with tab_bracket:
+    st.subheader("Official Round-of-32 bracket")
+    st.caption("Projected occupants use current group standings (1st/2nd). Third-place slots "
+               "fill once the group stage ends. Left & right halves only meet in the final.")
+    proj = {g: standings[standings["group"] == g]["team"].tolist() for g in sorted(standings["group"].unique())}
+
+    def _w(g):
+        return display(proj[g][0]) + " (1st)"
+
+    def _r(g):
+        return display(proj[g][1]) + " (2nd)"
+
+    left_matches = [
+        (_w("A"), "Best 3rd"), (_r("B"), _r("E")), (_w("E"), _r("A")), (_w("F"), _r("C")),
+        (_w("C"), "Best 3rd"), (_r("D"), _r("F")), (_w("D"), "Best 3rd"), (_w("G"), "Best 3rd"),
+    ]
+    right_matches = [
+        (_w("B"), "Best 3rd"), (_r("I"), _r("K")), (_w("I"), _r("G")), (_w("J"), _r("H")),
+        (_w("K"), "Best 3rd"), (_r("J"), _r("L")), (_w("L"), "Best 3rd"), (_w("H"), "Best 3rd"),
+    ]
+    lcol, rcol = st.columns(2)
+    lcol.markdown("#### Left half → Semi-final 1")
+    for a, b in left_matches:
+        lcol.write(f"- {a}  vs  {b}")
+    rcol.markdown("#### Right half → Semi-final 2")
+    for a, b in right_matches:
+        rcol.write(f"- {a}  vs  {b}")
+
+# ── Tab 4: Match predictor ─────────────────────────────────────────────────────────────
 with tab_match:
     st.subheader("Head-to-head predictor")
     c1, c2 = st.columns(2)
@@ -151,7 +210,7 @@ with tab_match:
         plots.plot_score_matrix(result["matrix"], display(home), display(away), ax=ax)
         st.pyplot(fig)
 
-# ── Tab 4: Live update ─────────────────────────────────────────────────────────────────
+# ── Tab 5: Live update ─────────────────────────────────────────────────────────────────
 with tab_live:
     st.subheader("Apply a finished match and see the impact")
     st.caption("Upload a match CSV (date, home_team, away_team, home_score, away_score, stage). "

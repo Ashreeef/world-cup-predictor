@@ -262,6 +262,35 @@ def load_wc2026_played(extra: pd.DataFrame | None = None) -> pd.DataFrame:
     return wc.reset_index(drop=True)
 
 
+def current_standings(played_matches: pd.DataFrame, groups: dict[str, list[str]] | None = None) -> pd.DataFrame:
+    """Real group standings from the matches played so far (points, GD, GF, played)."""
+    groups = groups or get_group_teams()
+    t2g = {canonical(t): g for g, ts in groups.items() for t in ts}
+    pts, gd, gf, pl = (defaultdict(int) for _ in range(4))
+    for r in played_matches.itertuples(index=False):
+        h, a = canonical(r.home_team), canonical(r.away_team)
+        if h not in t2g or a not in t2g:
+            continue
+        hs, as_ = int(r.home_score), int(r.away_score)
+        pl[h] += 1; pl[a] += 1
+        gf[h] += hs; gf[a] += as_
+        gd[h] += hs - as_; gd[a] += as_ - hs
+        if hs > as_:
+            pts[h] += 3
+        elif as_ > hs:
+            pts[a] += 3
+        else:
+            pts[h] += 1; pts[a] += 1
+    rows = [
+        {"group": g, "team": canonical(t), "played": pl[canonical(t)], "pts": pts[canonical(t)],
+         "gd": gd[canonical(t)], "gf": gf[canonical(t)]}
+        for g, ts in groups.items() for t in ts
+    ]
+    return pd.DataFrame(rows).sort_values(
+        ["group", "pts", "gd", "gf"], ascending=[True, False, False, False]
+    ).reset_index(drop=True)
+
+
 def run_simulation(
     n_sims: int = 10000,
     seed: int | None = None,
