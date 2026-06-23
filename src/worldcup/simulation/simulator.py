@@ -141,17 +141,12 @@ class TournamentSimulator:
         # 8 best third-placed teams by (pts, gd, gf).
         best_thirds = sorted(thirds, key=lambda r: (r[1], r[2], r[3], self.rng.random()), reverse=True)[:8]
 
-        # Seed all 32 qualifiers: group winners best, then runners-up, then thirds;
-        # within each tier by (pts, gd, gf).
-        def seed_key(rank_tier, rec):
-            return (rank_tier, -rec[1], -rec[2], -rec[3])
-
-        qualifiers = (
-            [("w", r) for r in winners] + [("r", r) for r in runners] + [("t", r) for r in best_thirds]
-        )
-        tier = {"w": 0, "r": 1, "t": 2}
-        qualifiers.sort(key=lambda x: seed_key(tier[x[0]], x[1]))
-        seeded = [rec[0] for _, rec in qualifiers]  # team idx, best seed first
+        # FIXED position-based bracket: winners (by group) -> runners-up (by group)
+        # -> 8 best thirds. The bracket SHAPE is fixed; only the occupants change
+        # with results. This avoids strength-reseeding, which would artificially
+        # keep strong teams apart and inflate their deep-run odds. (Approximates
+        # the official structure; FIFA's exact third-place slot table is omitted.)
+        seeded = [w[0] for w in winners] + [r[0] for r in runners] + [t[0] for t in best_thirds]
 
         stage = {rec[0]: "group" for group in (winners, runners, thirds) for rec in group}
         for t in seeded:
