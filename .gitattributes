@@ -1,0 +1,22 @@
+# Normalize line endings: store LF in the repo, check out native on each OS.
+* text=auto eol=lf
+
+# Keep these strictly LF.
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Treat notebooks as text but don't try to diff them noisily.
+*.ipynb text eol=lf
+
+# Binary / data files — never touch.
+*.csv binary
+*.parquet binary
+*.pkl binary
+*.joblib binary
+*.png binary
+*.jpg binary
