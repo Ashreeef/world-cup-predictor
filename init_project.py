@@ -14,7 +14,7 @@ def main() -> None:
         # Drop a .gitkeep so the (otherwise empty) folder can be committed.
         gitkeep = directory / ".gitkeep"
         gitkeep.touch(exist_ok=True)
-        print(f"  ✅ {directory}")
+        print(f"  [ok] {directory}")
     print("\nProject structure ready.")
 
 

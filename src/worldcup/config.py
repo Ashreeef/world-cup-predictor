@@ -15,7 +15,8 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 
 # ── Data directories ───────────────────────────────────────────────────────────
 DATA_DIR: Path = PROJECT_ROOT / "data"
-RAW_DATA_DIR: Path = DATA_DIR / "raw"               # immutable source data
+RAW_DATA_DIR: Path = DATA_DIR / "raw"               # downloaded external data (git-ignored)
+REFERENCE_DATA_DIR: Path = DATA_DIR / "reference"   # curated data we maintain (tracked)
 PROCESSED_DATA_DIR: Path = DATA_DIR / "processed"   # cleaned, model-ready data
 LIVE_DIR: Path = DATA_DIR / "live"                  # live tournament state
 MATCH_UPDATES_DIR: Path = LIVE_DIR / "match_updates"  # incoming new_match.csv files
@@ -29,6 +30,7 @@ NOTEBOOKS_DIR: Path = PROJECT_ROOT / "notebooks"
 # Convenience: list of all directories the project expects to exist.
 ALL_DIRS = [
     RAW_DATA_DIR,
+    REFERENCE_DATA_DIR,
     PROCESSED_DATA_DIR,
     MATCH_UPDATES_DIR,
     PREDICTIONS_DIR,
