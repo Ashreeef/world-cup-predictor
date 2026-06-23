@@ -68,6 +68,16 @@ def download_from_kaggle(force: bool = False) -> None:
     api.dataset_download_files(KAGGLE_DATASET, path=str(RAW_DATA_DIR), unzip=True)
 
 
+def ensure_results() -> None:
+    """Make sure data/raw/results.csv exists, downloading it if not.
+
+    Used at app startup so a fresh deployment (where data/ is git-ignored) can
+    bootstrap itself on first run.
+    """
+    if not (RAW_DATA_DIR / "results.csv").exists():
+        download_from_github()
+
+
 def download_historical_results(source: str = "github", force: bool = False) -> None:
     """Download the historical results from the chosen source."""
     if source == "github":

@@ -24,9 +24,14 @@ jupyter>=1.0
 pyyaml>=6.0
 tqdm>=4.66
 
-# ── Dev / quality (used by `make lint` and `make test`) ───────────────────────────
+# ── Dev / quality ─────────────────────────────────────────────────────────────────
 pytest>=8.0
 pytest-cov>=4.1
 black>=24.1
 isort>=5.13
 flake8>=7.0
+
+# ── Install the local `worldcup` package itself ───────────────────────────────────
+# Needed so deployment platforms (e.g. Streamlit Community Cloud) that only run
+# `pip install -r requirements.txt` can still `import worldcup`.
+-e .

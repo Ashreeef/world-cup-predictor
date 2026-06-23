@@ -8,7 +8,9 @@ in a temp directory.
 import pandas as pd
 import pytest
 
+from worldcup.data.download import ensure_results
 from worldcup.data.load import load_results
+from worldcup.config import RAW_DATA_DIR
 
 _VALID_ROWS = pd.DataFrame(
     {
@@ -48,3 +50,10 @@ def test_load_results_missing_columns(tmp_path):
     _VALID_ROWS.drop(columns=["neutral"]).to_csv(csv, index=False)
     with pytest.raises(ValueError):
         load_results(path=csv)
+
+
+@pytest.mark.skipif(not (RAW_DATA_DIR / "results.csv").exists(), reason="dataset not downloaded")
+def test_ensure_results_is_noop_when_present():
+    # Should not raise or re-download when the file already exists.
+    ensure_results()
+    assert (RAW_DATA_DIR / "results.csv").exists()

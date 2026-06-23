@@ -115,19 +115,56 @@ pytest
 ## Roadmap
 
 - [x] **Phase 1** — Repository, structure & environment setup
-- [ ] **Phase 2** — Historical football data collection
-- [ ] **Phase 3** — World Cup 2026 data collection
-- [ ] **Phase 4** — Elo rating system
-- [ ] **Phase 5** — Exploratory data analysis
-- [ ] **Phase 6** — Feature engineering
-- [ ] **Phase 7** — Baseline prediction model
-- [ ] **Phase 8** — XGBoost model
-- [ ] **Phase 9** — Poisson score model
-- [ ] **Phase 10** — Monte Carlo tournament simulator
-- [ ] **Phase 11** — Qualification & championship probabilities
-- [ ] **Phase 12** — Streamlit dashboard
-- [ ] **Phase 13** — Deployment
+- [x] **Phase 2** — Historical football data collection
+- [x] **Phase 3** — World Cup 2026 data collection
+- [x] **Phase 4** — Elo rating system
+- [x] **Phase 5** — Exploratory data analysis
+- [x] **Phase 6** — Feature engineering
+- [x] **Phase 7** — Baseline prediction model
+- [x] **Phase 8** — XGBoost model
+- [x] **Phase 9** — Poisson score model
+- [x] **Phase 10** — Monte Carlo tournament simulator
+- [x] **Phase 11** — Qualification & championship probabilities
+- [x] **Phase 12** — Streamlit dashboard
+- [x] **Phase 13** — Deployment
 - [ ] **Phase 14** — Model improvement
+
+---
+
+## Model performance
+
+Evaluated with a time-based split (train < 2022, test ≥ 2022, incl. WC2026):
+
+| Model | Accuracy | Log-loss |
+|-------|---------:|---------:|
+| Always-home baseline | 0.478 | 1.099 |
+| Logistic regression | 0.601 | 0.871 |
+| XGBoost | 0.602 | 0.873 |
+| Poisson (W/D/L) | 0.603 | 0.877 |
+
+The three trained models tie — with only 4 features and `elo_diff` dominating
+(~75% of importance), the signal is largely linear, so model complexity adds
+little. Bigger gains will come from richer features (Phase 14), not fancier
+models. The Poisson model additionally produces full scoreline probabilities.
+
+Sample title odds (10,000 simulations): Argentina **27.6%**, Spain **20.3%**,
+France **11.2%**, Brazil **6.7%**, England **6.0%**.
+
+---
+
+## Deployment
+
+The dashboard deploys to **Streamlit Community Cloud** with zero committed data:
+on first run it downloads the dataset and builds the models + a prediction
+snapshot (cached thereafter).
+
+1. Push this repo to GitHub.
+2. At [share.streamlit.io](https://share.streamlit.io), create an app pointing
+   to `app/streamlit_app.py` on the `main` branch.
+3. Streamlit installs `requirements.txt` (which includes `-e .`, so the
+   `worldcup` package is importable) and launches the app.
+
+Cold start takes ~30 s while it bootstraps; subsequent loads are instant.
 
 ---
 

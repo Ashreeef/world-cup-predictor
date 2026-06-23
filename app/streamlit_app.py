@@ -36,6 +36,15 @@ plots.set_style()
 
 
 # ── Cached loaders ─────────────────────────────────────────────────────────────────
+@st.cache_resource(show_spinner="Preparing data (first run only) ...")
+def bootstrap() -> bool:
+    """Ensure the historical dataset exists (downloads it on a fresh deploy)."""
+    from worldcup.data.download import ensure_results
+
+    ensure_results()
+    return True
+
+
 @st.cache_resource(show_spinner="Loading models ...")
 def load_models():
     elo = EloRatingSystem.load() if RATINGS_PATH.exists() else build_current_ratings(save=True)
@@ -73,6 +82,7 @@ def _pct(df: pd.DataFrame, cols=STAGE_COLS) -> pd.DataFrame:
 
 
 # ── App ─────────────────────────────────────────────────────────────────────────────
+bootstrap()
 elo, poisson_bundle = load_models()
 groups_df = load_groups()
 predictions = load_predictions()
