@@ -71,14 +71,38 @@ def load_predictions() -> pd.DataFrame:
     if snap is not None:
         df, _ = load_snapshot(snap)
         return df
+    from worldcup.simulation.knockout import R32_CSV, load_r32_bracket
     from worldcup.simulation.simulator import load_wc2026_played
 
     elo, poisson_bundle = load_models()
+    bracket = load_r32_bracket() if R32_CSV.exists() else None
     df, _ = generate_predictions(
         n_sims=10000, elo=elo, poisson_bundle=poisson_bundle,
-        played_matches=load_wc2026_played(), save=True,
+        played_matches=load_wc2026_played(), r32_bracket=bracket, save=True,
     )
     return df
+
+
+KNOCKOUT_LIVE = False
+try:
+    from worldcup.simulation.knockout import R32_CSV as _R32_CSV
+
+    KNOCKOUT_LIVE = _R32_CSV.exists()
+except Exception:
+    pass
+
+
+@st.cache_resource(show_spinner="Building knockout bracket ...")
+def load_knockout():
+    """Return (r32_match_table, advancement_odds_df) for the fixed bracket."""
+    from worldcup.simulation.knockout import knockout_predictions, load_r32_bracket, r32_match_table
+    from worldcup.simulation.simulator import load_wc2026_played
+
+    elo, poisson_bundle = load_models()
+    bracket = load_r32_bracket()
+    odds, sim = knockout_predictions(elo, poisson_bundle, played_matches=load_wc2026_played(), n_sims=10000)
+    matches = r32_match_table(sim, poisson_bundle, bracket)
+    return bracket, matches, odds
 
 
 def _pct(df: pd.DataFrame, cols=STAGE_COLS) -> pd.DataFrame:
@@ -159,32 +183,54 @@ with tab_groups:
 
 # ── Tab 3: Bracket ────────────────────────────────────────────────────────────────────
 with tab_bracket:
-    st.subheader("Official Round-of-32 bracket")
-    st.caption("Projected occupants use current group standings (1st/2nd). Third-place slots "
-               "fill once the group stage ends. Left & right halves only meet in the final.")
-    proj = {g: standings[standings["group"] == g]["team"].tolist() for g in sorted(standings["group"].unique())}
+    if not KNOCKOUT_LIVE:
+        st.info("The official Round-of-32 bracket appears here once the group stage ends.")
+    else:
+        bracket, match_table, ko_odds = load_knockout()
 
-    def _w(g):
-        return display(proj[g][0]) + " (1st)"
+        st.subheader("Round of 32 — win probabilities")
+        st.caption("Each card shows P(advance) and the most likely scoreline. Left half (M1–M8) "
+                   "and right half (M9–M16) only meet in the final.")
 
-    def _r(g):
-        return display(proj[g][1]) + " (2nd)"
+        def match_card(col, row):
+            fav_home = row.p_home >= 0.5
+            hn, an = display(row.home), display(row.away)
+            col.markdown(f"**M{row.match}**  ·  likely **{row.likely_score}**")
+            col.markdown(f"{'🟢 ' if fav_home else ''}{hn} — **{row.p_home:.0%}**")
+            col.progress(float(row.p_home))
+            col.markdown(f"{'🟢 ' if not fav_home else ''}{an} — **{row.p_away:.0%}**")
+            col.divider()
 
-    left_matches = [
-        (_w("A"), "Best 3rd"), (_r("B"), _r("E")), (_w("E"), _r("A")), (_w("F"), _r("C")),
-        (_w("C"), "Best 3rd"), (_r("D"), _r("F")), (_w("D"), "Best 3rd"), (_w("G"), "Best 3rd"),
-    ]
-    right_matches = [
-        (_w("B"), "Best 3rd"), (_r("I"), _r("K")), (_w("I"), _r("G")), (_w("J"), _r("H")),
-        (_w("K"), "Best 3rd"), (_r("J"), _r("L")), (_w("L"), "Best 3rd"), (_w("H"), "Best 3rd"),
-    ]
-    lcol, rcol = st.columns(2)
-    lcol.markdown("#### Left half → Semi-final 1")
-    for a, b in left_matches:
-        lcol.write(f"- {a}  vs  {b}")
-    rcol.markdown("#### Right half → Semi-final 2")
-    for a, b in right_matches:
-        rcol.write(f"- {a}  vs  {b}")
+        left = match_table[match_table["match"] <= 8]
+        right = match_table[match_table["match"] >= 9]
+        lcol, rcol = st.columns(2)
+        lcol.markdown("#### ◀ Left half → Semi-final 1")
+        for r in left.itertuples():
+            match_card(lcol, r)
+        rcol.markdown("#### Right half → Semi-final 2 ▶")
+        for r in right.itertuples():
+            match_card(rcol, r)
+
+        st.subheader("Who lifts the trophy?")
+        odds_disp = ko_odds[ko_odds["qualify"] > 0].head(12).copy()
+        odds_disp = _pct(odds_disp, ["round_of_16", "quarter_final", "semi_final", "final", "champion"])
+        st.dataframe(
+            odds_disp.drop(columns=["qualify"]).rename(columns=lambda c: c.replace("_", " ").title()),
+            use_container_width=True, hide_index=True,
+        )
+
+        st.subheader("🛤️ Path to glory")
+        flat = [t for pair in bracket for t in pair]
+        pick = st.selectbox("Pick a team", sorted(display(t) for t in flat))
+        canon_pick = {display(t): t for t in flat}[pick]
+        row = ko_odds[ko_odds["team"] == canon_pick].iloc[0]
+        opp_row = match_table[(match_table["home"] == canon_pick) | (match_table["away"] == canon_pick)].iloc[0]
+        opponent = opp_row["away"] if opp_row["home"] == canon_pick else opp_row["home"]
+        p_adv = opp_row["p_home"] if opp_row["home"] == canon_pick else opp_row["p_away"]
+        st.write(f"**Round of 32:** {pick} vs {display(opponent)} — win prob **{p_adv:.0%}**")
+        cols = st.columns(5)
+        for c, key in zip(cols, ["round_of_16", "quarter_final", "semi_final", "final", "champion"]):
+            c.metric(key.replace("_", " ").title(), f"{row[key]*100:.1f}%")
 
 # ── Tab 4: Match predictor ─────────────────────────────────────────────────────────────
 with tab_match:

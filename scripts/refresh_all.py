@@ -44,12 +44,18 @@ def main() -> None:
 
     print("3/4  Loading matches played so far ...")
     played = load_wc2026_played()
-    print(f"     {len(played)} WC2026 matches played (out of 72 group games).")
+    print(f"     {len(played)} WC2026 matches played.")
 
-    print(f"4/4  Running {args.sims:,} results-aware simulations ...")
+    # Once the group stage is over and the R32 bracket exists, predict the knockout
+    # from the fixed bracket; otherwise simulate the full group + knockout.
+    from worldcup.simulation.knockout import R32_CSV, load_r32_bracket
+
+    bracket = load_r32_bracket() if R32_CSV.exists() else None
+    mode = "fixed knockout bracket" if bracket else "full group + knockout"
+    print(f"4/4  Running {args.sims:,} simulations ({mode}) ...")
     table, snap = generate_predictions(
         n_sims=args.sims, seed=args.seed, elo=elo, poisson_bundle=poisson_bundle,
-        played_matches=played, save=True, label="full_refresh",
+        played_matches=played, save=True, label="full_refresh", r32_bracket=bracket,
     )
 
     eliminated = table[table["qualify"] < 1e-9]["team"].tolist()

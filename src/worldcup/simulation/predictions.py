@@ -66,17 +66,34 @@ def generate_predictions(
     label: str | None = None,
     applied_matches: list[str] | None = None,
     played_matches: pd.DataFrame | None = None,
+    r32_bracket: list | None = None,
 ) -> tuple[pd.DataFrame, Path | None]:
-    """Run the simulation (conditioned on `played_matches`) and optionally save."""
-    from worldcup.simulation.simulator import run_simulation
+    """Run the simulation (conditioned on `played_matches`) and optionally save.
 
-    df = run_simulation(
-        n_sims=n_sims, seed=seed, elo=elo, poisson_bundle=poisson_bundle, played_matches=played_matches
-    )
+    If `r32_bracket` is given (group stage finished), the fixed-bracket knockout
+    simulation is used; otherwise the full group+knockout simulation runs.
+    """
+    if r32_bracket is not None:
+        from worldcup.simulation.knockout import knockout_predictions
+
+        df, _ = knockout_predictions(
+            elo, poisson_bundle, played_matches=played_matches,
+            n_sims=n_sims, seed=seed or 42, bracket=r32_bracket,
+        )
+        stage = "knockout"
+    else:
+        from worldcup.simulation.simulator import run_simulation
+
+        df = run_simulation(
+            n_sims=n_sims, seed=seed, elo=elo, poisson_bundle=poisson_bundle, played_matches=played_matches
+        )
+        stage = "group"
+
     metadata = {
         "n_sims": n_sims,
         "seed": seed,
         "label": label,
+        "stage": stage,
         "elo_through": getattr(elo, "last_date", None),
         "n_played": 0 if played_matches is None else len(played_matches),
         "applied_matches": applied_matches or [],

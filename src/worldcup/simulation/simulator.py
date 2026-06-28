@@ -115,6 +115,7 @@ class TournamentSimulator:
     def _precompute_lambdas(self, elo: EloRatingSystem, bundle: dict) -> None:
         n = len(self.teams)
         elos = np.array([elo.get(t) for t in self.teams])
+        self.team_elo = elos
         pairs = [(i, j) for i in range(n) for j in range(n) if i != j]
         X = pd.DataFrame(
             [{"elo_diff": elos[i] - elos[j], "neutral": 1} for i, j in pairs]
@@ -230,6 +231,64 @@ class TournamentSimulator:
         levels = np.zeros((n, 7), dtype=np.int64)
         for _ in range(n_sims):
             for t, st in self.simulate_tournament().items():
+                levels[t, STAGE_LEVEL[st]] += 1
+        reach = np.cumsum(levels[:, ::-1], axis=1)[:, ::-1] / n_sims
+        df = pd.DataFrame(
+            {
+                "team": self.teams,
+                "qualify": reach[:, 1],
+                "round_of_16": reach[:, 2],
+                "quarter_final": reach[:, 3],
+                "semi_final": reach[:, 4],
+                "final": reach[:, 5],
+                "champion": reach[:, 6],
+            }
+        )
+        return df.sort_values("champion", ascending=False).reset_index(drop=True)
+
+    # ── Fixed knockout bracket (group stage finished) ───────────────────────────────
+    def match_win_prob(self, home: str, away: str) -> float:
+        """Analytic P(home advances) for a single knockout match.
+
+        = P(home wins in 90') + P(draw) * P(home wins the shootout). If the match
+        was already played, returns the actual result deterministically.
+        """
+        from scipy.stats import poisson as _poisson
+
+        i, j = self.idx[canonical(home)], self.idx[canonical(away)]
+        if (i, j) in self.played:
+            gi, gj = self.played[(i, j)]
+        elif (j, i) in self.played:
+            gj, gi = self.played[(j, i)]
+        else:
+            gi = gj = None
+        if gi is not None:
+            return 1.0 if gi > gj else (0.0 if gj > gi else float(self.p_win[i, j]))
+
+        goals = np.arange(0, 16)
+        matrix = np.outer(_poisson.pmf(goals, self.LH[i, j]), _poisson.pmf(goals, self.LA[i, j]))
+        return float(np.tril(matrix, -1).sum() + np.trace(matrix) * self.p_win[i, j])
+
+    def play_fixed_knockout(self, bracket_idx: list[int]) -> dict[int, str]:
+        """Play a knockout from a fixed 32-team bracket (consecutive pairs = R32 matches)."""
+        stage = {t: "round_of_32" for t in bracket_idx}
+        current = list(bracket_idx)
+        for round_stage in _KO_PROGRESSION:
+            nxt = []
+            for k in range(0, len(current), 2):
+                _, _, w = self._play(current[k], current[k + 1], knockout=True)
+                stage[w] = round_stage
+                nxt.append(w)
+            current = nxt
+        return stage
+
+    def run_fixed_knockout(self, bracket_names: list[str], n_sims: int = 10000) -> pd.DataFrame:
+        """Aggregate knockout outcomes from a fixed R32 bracket into per-team probabilities."""
+        bracket_idx = [self.idx[canonical(t)] for t in bracket_names]
+        n = len(self.teams)
+        levels = np.zeros((n, 7), dtype=np.int64)
+        for _ in range(n_sims):
+            for t, st in self.play_fixed_knockout(bracket_idx).items():
                 levels[t, STAGE_LEVEL[st]] += 1
         reach = np.cumsum(levels[:, ::-1], axis=1)[:, ::-1] / n_sims
         df = pd.DataFrame(
